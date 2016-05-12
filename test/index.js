@@ -17,6 +17,26 @@ var proxySettings = {
     },
     timeout: 30,
     cookies: true
+  },
+  '__': {
+    origin: "http://localhost:" + PORT,
+    headers: {
+      'Accept': 'application/json'
+    },
+    timeout: 30,
+    cookies: true
+  },
+  rewrite: {
+    origin: "http://localhost:" + PORT,
+    headers: {
+      'Accept': 'application/json'
+    },
+    timeout: 30,
+    cookies: true,
+    urlSlicePoint: 2,
+    rewrites: [
+      { "source": "/rewrite/something", "destination": "/elsewhere" }
+    ]
   }
 };
 
@@ -24,8 +44,7 @@ var configSetup = function (req, res, next) {
   req.service = {
     config: clone(proxySettings)
   };
-  
-  req.service.path = req.url.replace('/__', '');
+
   next();
 };
 
@@ -46,10 +65,10 @@ describe('Superstatic Proxy', function () {
   
   // it.only('test', function (done) {
   //   request(app)
-  //     .get('/__/proxy/api/users.json')
+  //     .get('/api/users.json')
   //     .expect(200)
   //     .expect(function (data) {
-  //       expect(data.res.body.url).to.equal('/users.json');
+  //       expect(data.res.body.url).to.equal('/api/users.json');
   //     })
   //     .end(done);
   // });
@@ -59,7 +78,7 @@ describe('Superstatic Proxy', function () {
       .use(proxy());
     
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .expect(404)
       .end(done);
   });
@@ -70,25 +89,25 @@ describe('Superstatic Proxy', function () {
       .use(proxy());
     
     request(app)
-      .get('/__/proxy/not/users.json')
+      .get('/not/proxied/users.json')
       .expect(404)
       .end(done);
   });
   
   it('proxies a request', function (done) {
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .expect(200)
       .expect(function (data) {
         
-        expect(data.res.body.url).to.equal('/users.json');
+        expect(data.res.body.url).to.equal('/api/users.json');
       })
       .end(done);
   });
   
   it('proxies a request with the requested method', function (done) {
     request(app)
-      .post('/__/proxy/api/users.json')
+      .post('/api/users.json')
       .expect(200)
       .expect(function (data) {
         expect(data.res.body.method).to.equal('POST');
@@ -99,7 +118,7 @@ describe('Superstatic Proxy', function () {
   it('proxies a DELETE request', function (done) {
     
     request(app)
-      .delete('/__/proxy/api/users.json')
+      .delete('/api/users.json')
       .expect(200)
       .expect(function (data) {
         expect(data.res.body.method).to.equal('DELETE');
@@ -109,7 +128,7 @@ describe('Superstatic Proxy', function () {
   
   it('proxies a request, ignoring the proxy name case', function (done) {
     request(app)
-      .post('/__/proxy/Api/users.json')
+      .post('/api/users.json')
       .expect(200)
       .expect(function (data) {
         expect(data.res.body.method).to.equal('POST');
@@ -119,7 +138,7 @@ describe('Superstatic Proxy', function () {
   
   it('removes the host/origin from the original request', function (done) {
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .set('host', 'http://localhost')
       .expect(function (data) {
         expect(data.body.headers.host).to.not.equal('http://localhost');
@@ -129,7 +148,7 @@ describe('Superstatic Proxy', function () {
   
   it('passes through the headers', function (done) {
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .expect(200)
       .expect(function (data) {
         expect(data.res.body.headers['accept']).to.equal('application/json');
@@ -146,7 +165,7 @@ describe('Superstatic Proxy', function () {
       .use(proxy());
       
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .expect(200)
       .end(done);
   });
@@ -162,14 +181,14 @@ describe('Superstatic Proxy', function () {
       .use(proxy());
       
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .expect(200)
       .end(done);
   });
   
   it('overrides the config headers with any headers sent in the ajax request', function (done) {
     request(app)
-      .get('/__/proxy/api/users.json')
+      .get('/api/users.json')
       .set('Accept', 'text/html')
       .expect(200)
       .expect(function (data) {
@@ -180,7 +199,7 @@ describe('Superstatic Proxy', function () {
   
   it('configures request body pass through', function (done) {
     request(app)
-      .post('/__/proxy/api/users.json')
+      .post('/api/users.json')
       .send({key: 'value'})
       .expect(200)
       .expect(function (data) {
@@ -207,7 +226,7 @@ describe('Superstatic Proxy', function () {
       .end(function () {
         setTimeout(function () {
           agent
-            .get('/__/proxy/api/users.json')
+            .get('/api/users.json')
             .expect(function (data) {
               expect(data.res.body.headers.cookie).to.equal(undefined);
             })
@@ -241,7 +260,7 @@ describe('Superstatic Proxy', function () {
       .end(function () {
         setTimeout(function () {
           agent
-            .get('/__/proxy/api/users.json')
+            .get('/api/users.json')
             .expect(function (data) {
               expect(data.res.body.headers.cookie).to.eql('cookie1=test1;cookie2=test2');
             })
@@ -260,7 +279,29 @@ describe('Superstatic Proxy', function () {
       next();
     }
   });
-  
+
+  it('proxies a request using the alternate underscore path', function (done) {
+    request(app)
+        .get('/__/proxy/api/users.json')
+        .expect(200)
+        .expect(function (data) {
+
+          expect(data.res.body.url).to.equal('/__/proxy/api/users.json');
+        })
+        .end(done);
+  });
+
+  it('proxies a request with a rewrite', function (done) {
+    request(app)
+        .get('/rewrite/something/users.json')
+        .expect(200)
+        .expect(function (data) {
+
+          expect(data.res.body.url).to.equal('/elsewhere/users.json');
+        })
+        .end(done);
+  });
+
   // TODO: reimplement when we can figure out how to test
   // a request timeout
   it.skip('configures request timeout', function (done) {
@@ -276,7 +317,7 @@ describe('Superstatic Proxy', function () {
     
     d.run(function () {
       request(app)
-        .get('/__/proxy/api/users.json')
+        .get('/api/users.json')
         .end(function (err, data) {
           console.log(data);
           if (err && err.code === 'ECONNRESET') return;

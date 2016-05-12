@@ -3,8 +3,8 @@
 The Superstatic AJAX proxy lets you make requests to other domians without
 violating the Same-Origin Policy. For instance, you could mount a proxy
 called `api` that pointed to `https://api.your-app.com`. Once you've done
-so, a request to e.g. `/__/proxy/api/users.json` would be proxied through to
-`https://api.your-app.com/users.json`.
+so, a request to e.g. `/api/users.json` would be proxied through to
+`https://api.your-app.com/api/users.json`.
 
 ## Configuration
 
@@ -28,7 +28,13 @@ details. An example (comments for clarity despite JSON syntax):
     "cookies": false,
     
     // set a timeout for requests sent to the proxy (defaults to 30 seconds)
-    "timeout": 30
+    "timeout": 30,
+    
+    // rewrite URLs before proxying (default list is empty)
+    // the first path fragment of source must match the name of this config ('api' in this example)
+    "rewrites": [
+      { "source": "/api/proxy", "destination": "/" }
+    ]
   }  
 }
 ```

@@ -17,12 +17,22 @@ module.exports = function () {
     if (!req.service || !req.service.config) return next();
     
     var requestUrlValues = (req.service.path || req.url).split('/');
-    var proxyName = requestUrlValues[2];
+    // slice the proxy configuration name from the first path fragment (index 0 is an empty string)
+    var proxyName = requestUrlValues[1];
     var config = getEndpointConfig(proxyName);
     
     if (!config || !config.origin) return next();
-    
-    var endpointUri = requestUrlValues.slice(3).join('/');
+
+    // reassemble URL
+    var endpointUri = requestUrlValues.join('/');
+    // rewrite if necessary
+    if(config.rewrites) {
+      config.rewrites.forEach(function (rewrite) {
+        if(endpointUri.indexOf(rewrite.source) >= 0) {
+          endpointUri = endpointUri.replace(rewrite.source, rewrite.destination);
+        }
+      });
+    }
     
     // Set headers
     Object.keys(config.headers || {}).forEach(function (key) {
